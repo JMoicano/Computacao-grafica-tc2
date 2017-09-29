@@ -241,7 +241,7 @@ void idle(void){
 		double jumpTime = (clock() - (double)jumpInitTime)/CLOCKS_PER_SEC;
 		cout << jumpTime << endl;
 		if(jumpTime < 2){
-			player->setRadius(playerRadius + (1.5 * playerRadius * -pow(jumpTime-1,2)));
+			player->setRadius(playerRadius + (1.5 * playerRadius * (jumpTime*(2 - jumpTime))));
 		}else{
 			player->setRadius(playerRadius);
 			inJump = false;
