@@ -2,6 +2,7 @@
 #include <string>
 #include <cstdlib>
 #include <cmath>
+#include <ctime>
 #include <list>
 
 #include <GL/glut.h>
@@ -19,6 +20,14 @@ list<Circle*> highObstacles;
 list<Circle*> lowObstacles;
 
 int keyFlags[256];
+
+double playerRadius;
+
+bool inJump = false;
+
+bool canMove[4];
+
+clock_t jumpInitTime;
 
 Window *window;
 
@@ -78,7 +87,7 @@ void readParams(char* fileName){
 				y = it->IntAttribute("cy");
 				radius = it->FloatAttribute("r");
 
-				Circle *c = new Circle(radius, x, y, 0);
+				Circle *c = new Circle(radius, x, -y, 0);
 
 				if(cor.compare("red") == 0){
 					c->setColor(1, 0, 0);
@@ -94,6 +103,7 @@ void readParams(char* fileName){
 					c->setColor(1, 1, 1);
 					arena[1] = c;
 				}else if(cor.compare("green") == 0){
+					playerRadius = radius;
 					c->setColor(0, 1, 0);
 					player = c;
 				}
@@ -108,6 +118,7 @@ void initWindow(void)
 	{
 		keyFlags[i] = 0;
 	}
+	canMove[0] = canMove[1] = canMove[2] = canMove[3] = true;
 	 // select background color 
 	glClearColor (1, 1, 1, 0.0);
 	 // inicializar sistema de viz. 
@@ -167,29 +178,100 @@ void display(void)
 	glFlush ();
 }
 
+double dist(Circle *c1, Circle *c2){
+	double distance = sqrt(pow(c1->getCenterX() - c2->getCenterX(), 2) + pow(c1->getCenterY() - c2->getCenterY(), 2));
+}
+
+void checkCollision(Circle *c1, Circle *c2, bool intern = false){
+	double distance = dist(c1, c2);
+	bool freeMove = intern ? distance < c1->getRadius() - c2->getRadius() : distance > c1->getRadius() + c2->getRadius();
+	bool previous[4];
+	previous[0] = canMove[0] || intern;
+	previous[1] = canMove[1] || intern;
+	previous[2] = canMove[2] || intern;
+	previous[3] = canMove[3] || intern;
+	if(!freeMove){
+		canMove[0] = canMove[0] && (intern ? c2->getCenterX() > c1->getCenterX() : c2->getCenterX() < c1->getCenterX());
+		canMove[1] = canMove[1] && (intern ? c2->getCenterY() > c1->getCenterY() : c2->getCenterY() < c1->getCenterY());
+		canMove[2] = canMove[2] && (intern ? c2->getCenterX() < c1->getCenterX() : c2->getCenterX() > c1->getCenterX());
+		canMove[3] = canMove[3] && (intern ? c2->getCenterY() < c1->getCenterY() : c2->getCenterY() > c1->getCenterY());
+
+	}else{
+		canMove[0] = canMove[0] || previous[0];
+		canMove[1] = canMove[1] || previous[1];
+		canMove[2] = canMove[2] || previous[2];
+		canMove[3] = canMove[3] || previous[3];
+	}
+}
+
+void checkJump(){
+
+}
+
 void idle(void){
 	float delta = window->getWidth()/700;
 	
-	double distance = sqrt(pow(player->getCenterX() - arena[0]->getCenterX(), 2) + pow(player->getCenterY() - arena[0]->getCenterY(), 2));
+	Circle *ifMoved = new Circle(playerRadius, player->getCenterX(), player->getCenterY(), 0);
 
 	if(keyFlags['a']){
-		if((distance < arena[0]->getRadius() - player->getRadius()) || player->getCenterX() > arena[0]->getCenterX()){
+			ifMoved->addCenterX(-delta);
+	}
+	if(keyFlags['s']){
+			ifMoved->addCenterY(-delta);
+	}
+	if(keyFlags['d']){
+			ifMoved->addCenterX(+delta);
+	}
+	if(keyFlags['w']){
+			ifMoved->addCenterY(+delta);
+	}
+
+	checkCollision(arena[0], ifMoved, true);
+	checkCollision(arena[1], ifMoved);
+	for (list<Circle*>::iterator iter = highObstacles.begin(); iter != highObstacles.end(); ++iter)
+	{
+		checkCollision((*iter), ifMoved);
+	}
+	if(!inJump){
+		for (list<Circle*>::iterator iter = lowObstacles.begin(); iter != lowObstacles.end(); ++iter)
+		{
+			checkCollision((*iter), ifMoved);
+		}
+	}else{
+		double jumpTime = (clock() - (double)jumpInitTime)/CLOCKS_PER_SEC;
+		cout << jumpTime << endl;
+		if(jumpTime < 2){
+			player->setRadius(playerRadius + (1.5 * playerRadius * -pow(jumpTime-1,2)));
+		}else{
+			player->setRadius(playerRadius);
+			inJump = false;
+		}
+	}
+
+	if(keyFlags['a']){
+		if(canMove[0]){
 			player->addCenterX(-delta);
 		}
 	}
 	if(keyFlags['s']){
-		if((distance < arena[0]->getRadius() - player->getRadius()) || player->getCenterY() > arena[0]->getCenterY()){
+		if(canMove[1]){
 			player->addCenterY(-delta);
 		}
 	}
 	if(keyFlags['d']){
-		if((distance < arena[0]->getRadius() - player->getRadius()) || player->getCenterX() < arena[0]->getCenterX()){
+		if(canMove[2]){
 			player->addCenterX(+delta);
 		}
 	}
 	if(keyFlags['w']){
-		if((distance < arena[0]->getRadius() - player->getRadius()) || player->getCenterY() < arena[0]->getCenterY()){
+		if(canMove[3]){
 			player->addCenterY(+delta);
+		}
+	}
+	if(keyFlags['p']){
+		if(!inJump){
+			inJump = true;
+			jumpInitTime = clock();
 		}
 	}
 	glutPostRedisplay();
