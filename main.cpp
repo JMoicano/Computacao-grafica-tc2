@@ -266,21 +266,53 @@ void idle(void){
 	if(keyFlags['a']){
 		if(canMove[0]){
 			player->addCenterX(-delta);
+		}else{
+			player->addCenterX(delta);
+			if(!canMove[3]){
+				player->addCenterY(-delta);
+			}
+			if(!canMove[1]){
+				player->addCenterY(delta);
+			}
 		}
 	}
 	if(keyFlags['s']){
 		if(canMove[1]){
 			player->addCenterY(-delta);
+		}else{
+			player->addCenterY(delta);
+			if(!canMove[2]){
+				player->addCenterX(-delta);
+			}
+			if(!canMove[0]){
+				player->addCenterX(delta);
+			}
 		}
 	}
 	if(keyFlags['d']){
 		if(canMove[2]){
 			player->addCenterX(+delta);
+		}else{
+			player->addCenterX(-delta);
+			if(!canMove[3]){
+				player->addCenterY(-delta);
+			}
+			if(!canMove[1]){
+				player->addCenterY(delta);
+			}
 		}
 	}
 	if(keyFlags['w']){
 		if(canMove[3]){
 			player->addCenterY(+delta);
+		}else{
+			player->addCenterY(-delta);
+			if(!canMove[2]){
+				player->addCenterX(-delta);
+			}
+			if(!canMove[0]){
+				player->addCenterX(delta);
+			}
 		}
 	}
 	if(keyFlags['p']){
