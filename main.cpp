@@ -24,7 +24,7 @@ int keyFlags[256];
 double playerRadius;
 
 bool inJump = false;
-
+bool aboveObstacle = false;
 bool canMove[4];
 
 clock_t jumpInitTime;
@@ -182,7 +182,7 @@ double dist(Circle *c1, Circle *c2){
 	double distance = sqrt(pow(c1->getCenterX() - c2->getCenterX(), 2) + pow(c1->getCenterY() - c2->getCenterY(), 2));
 }
 
-void checkCollision(Circle *c1, Circle *c2, bool intern = false){
+void checkCollision(Circle *c1, Circle *c2, bool intern = false, bool lowObstacle = false){
 	double distance = dist(c1, c2);
 	bool freeMove = intern ? distance < c1->getRadius() - c2->getRadius() : distance > c1->getRadius() + c2->getRadius();
 	bool previous[4];
@@ -190,6 +190,12 @@ void checkCollision(Circle *c1, Circle *c2, bool intern = false){
 	previous[1] = canMove[1] || intern;
 	previous[2] = canMove[2] || intern;
 	previous[3] = canMove[3] || intern;
+	if(aboveObstacle && freeMove){
+		aboveObstacle = false;
+	}
+	if((lowObstacles && inJump) || aboveObstacle){
+		freeMove = true;
+	}
 	if(!freeMove){
 		canMove[0] = canMove[0] && (intern ? c2->getCenterX() > c1->getCenterX() : c2->getCenterX() < c1->getCenterX());
 		canMove[1] = canMove[1] && (intern ? c2->getCenterY() > c1->getCenterY() : c2->getCenterY() < c1->getCenterY());
@@ -205,7 +211,16 @@ void checkCollision(Circle *c1, Circle *c2, bool intern = false){
 }
 
 void checkJump(){
-
+	if(inJump){
+		double jumpTime = (clock() - (double)jumpInitTime)/CLOCKS_PER_SEC;
+		cout << jumpTime << endl;
+		if(jumpTime < 2){
+			player->setRadius(playerRadius + (1.5 * playerRadius * (jumpTime*(2 - jumpTime))));
+		}else{
+			player->setRadius(playerRadius);
+			inJump = false;
+		}
+	}
 }
 
 void idle(void){
@@ -232,21 +247,14 @@ void idle(void){
 	{
 		checkCollision((*iter), ifMoved);
 	}
-	if(!inJump){
-		for (list<Circle*>::iterator iter = lowObstacles.begin(); iter != lowObstacles.end(); ++iter)
-		{
-			checkCollision((*iter), ifMoved);
-		}
-	}else{
-		double jumpTime = (clock() - (double)jumpInitTime)/CLOCKS_PER_SEC;
-		cout << jumpTime << endl;
-		if(jumpTime < 2){
-			player->setRadius(playerRadius + (1.5 * playerRadius * (jumpTime*(2 - jumpTime))));
-		}else{
-			player->setRadius(playerRadius);
-			inJump = false;
-		}
+	
+	for (list<Circle*>::iterator iter = lowObstacles.begin(); iter != lowObstacles.end(); ++iter)
+	{
+
+		checkCollision((*iter), ifMoved, false, true);
 	}
+	
+	checkJump();
 
 	if(keyFlags['a']){
 		if(canMove[0]){
