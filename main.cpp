@@ -190,12 +190,19 @@ void checkCollision(Circle *c1, Circle *c2, bool intern = false, bool lowObstacl
 	previous[1] = canMove[1] || intern;
 	previous[2] = canMove[2] || intern;
 	previous[3] = canMove[3] || intern;
-	if(aboveObstacle && freeMove){
-		aboveObstacle = false;
+	
+	if(lowObstacle){
+		if(freeMove){
+			aboveObstacle = false;
+		}
+		if(inJump){
+			aboveObstacle = true;
+		}
+		if(aboveObstacle){
+			freeMove = true;
+		}
 	}
-	if((lowObstacles && inJump) || aboveObstacle){
-		freeMove = true;
-	}
+	
 	if(!freeMove){
 		canMove[0] = canMove[0] && (intern ? c2->getCenterX() > c1->getCenterX() : c2->getCenterX() < c1->getCenterX());
 		canMove[1] = canMove[1] && (intern ? c2->getCenterY() > c1->getCenterY() : c2->getCenterY() < c1->getCenterY());
