@@ -20,24 +20,33 @@ list<Circle*> highObstacles;
 list<Circle*> lowObstacles;
 
 int keyFlags[256];
-int aboveObstacleI = -1;
+bool above = false;
+int aboveI = -1;
 
 double playerRadius;
 
 bool inJump = false;
 bool canMove[4];
 
-clock_t jumpInitTime;
+int jumpInitTime;
 
 Window *window;
 
 void readParams(char* fileName){
 	XMLDocument file;
 
+	string fileNameS = fileName;
+
+	if(fileNameS[fileNameS.size() - 1] != '/'){
+		fileNameS + "/";
+	}
+
+	fileNameS.append("config.xml");
+
 	string endereco;
 
 	//Read XML file using tinyxml2
-	if(file.LoadFile(fileName)){
+	if(file.LoadFile(fileNameS.c_str())){
 		cout << "Erro ao ler arquivo XML" << endl;
 	}else{
 		XMLElement* rootTag = file.FirstChildElement();
@@ -56,7 +65,6 @@ void readParams(char* fileName){
 				endereco += it->Attribute("nome");
 				endereco += + ".";
 				endereco += it->Attribute("tipo");
-				cout << endereco << endl;
 				
 			}
 		}
@@ -182,40 +190,11 @@ double dist(Circle *c1, Circle *c2){
 	double distance = sqrt(pow(c1->getCenterX() - c2->getCenterX(), 2) + pow(c1->getCenterY() - c2->getCenterY(), 2));
 }
 
-void checkCollision(Circle *c1, Circle *c2, bool intern = false, bool lowObstacle = false, int obstacle = -2){
+void checkCollision(Circle *c1, Circle *c2, bool intern = false){
 	double distance = dist(c1, c2);
-	bool aboveObstacle = (aboveObstacleI == obstacle);
-	if(lowObstacle){
-		cout << "distance: " << distance << endl;
-		cout << "comp: " << c1->getRadius() + c2->getRadius() << endl;
-	}
+
 	bool freeMove = intern ? distance < c1->getRadius() - c2->getRadius() : distance > c1->getRadius() + c2->getRadius();
-	bool previous[4];
-	previous[0] = canMove[0] || intern;
-	previous[1] = canMove[1] || intern;
-	previous[2] = canMove[2] || intern;
-	previous[3] = canMove[3] || intern;
-	if(lowObstacle){
-		if(freeMove){
-			aboveObstacle = false;
-		}else{
-			aboveObstacleI = obstacle;
-		}
-		if(inJump){
-			aboveObstacle = true;
-		}
-		if(aboveObstacle){
-			freeMove = true;
-		}
-		cout << "aboveObstacle: " << aboveObstacle << endl;
-		cout << "lowObstacle: " << lowObstacle << endl;
-		cout << "freeMove: " << freeMove << endl;
-		cout << "inJump: " << inJump << endl;
-		cout << canMove[0] << endl;
-		cout << canMove[1] << endl;
-		cout << canMove[2] << endl;
-		cout << canMove[3] << endl;
-	}
+	
 	if(!freeMove){
 		canMove[0] = canMove[0] && (intern ? c2->getCenterX() > c1->getCenterX() : c2->getCenterX() < c1->getCenterX());
 		canMove[1] = canMove[1] && (intern ? c2->getCenterY() > c1->getCenterY() : c2->getCenterY() < c1->getCenterY());
@@ -223,18 +202,51 @@ void checkCollision(Circle *c1, Circle *c2, bool intern = false, bool lowObstacl
 		canMove[3] = canMove[3] && (intern ? c2->getCenterY() < c1->getCenterY() : c2->getCenterY() > c1->getCenterY());
 
 	}else{
-		canMove[0] = canMove[0] || previous[0];
-		canMove[1] = canMove[1] || previous[1];
-		canMove[2] = canMove[2] || previous[2];
-		canMove[3] = canMove[3] || previous[3];
+		canMove[0] = canMove[0] || intern;
+		canMove[1] = canMove[1] || intern;
+		canMove[2] = canMove[2] || intern;
+		canMove[3] = canMove[3] || intern;
 	}
+}
+
+void checkCollisionJumpable(Circle *c1, Circle*c2, int i){
+	double distance = dist(c1, c2);
+
+	if(above && aboveI != i){
+		return;
+	}
+
+	if(!inJump && !above){
+		checkCollision(c1, c2);
+	}else{
+		if(distance < c1->getRadius() + c2->getRadius()){
+			above = true;
+			aboveI = i;
+			if(inJump){
+				canMove[0] = canMove[0] || ( c2->getCenterX() > c1->getCenterX());
+				canMove[1] = canMove[1] || ( c2->getCenterY() > c1->getCenterY());
+				canMove[2] = canMove[2] || ( c2->getCenterX() < c1->getCenterX());
+				canMove[3] = canMove[3] || ( c2->getCenterY() < c1->getCenterY());
+			} else {
+				canMove[0] = canMove[0] || ( c2->getCenterX() > c1->getCenterX());
+				canMove[1] = canMove[1] || ( c2->getCenterY() > c1->getCenterY());
+				canMove[2] = canMove[2] || ( c2->getCenterX() < c1->getCenterX());
+				canMove[3] = canMove[3] || ( c2->getCenterY() < c1->getCenterY());
+			}
+
+		} else {
+			above = false;
+			aboveI = -1;
+		}
+	}
+
 }
 
 void checkJump(){
 	if(inJump){
-		double jumpTime = (clock() - (double)jumpInitTime)/CLOCKS_PER_SEC;
+		double jumpTime = 1.0 * (glutGet(GLUT_ELAPSED_TIME) - jumpInitTime)/1000;
 		if(jumpTime < 2){
-			player->setRadius(playerRadius + (1.5 * playerRadius * (jumpTime*(2 - jumpTime))));
+			player->setRadius(playerRadius + (.5 * playerRadius * (jumpTime*(2 - jumpTime))));
 		}else{
 			player->setRadius(playerRadius);
 			inJump = false;
@@ -269,7 +281,7 @@ void idle(void){
 	 int i = 0;
 	for (list<Circle*>::iterator iter = lowObstacles.begin(); iter != lowObstacles.end(); ++iter, ++i)
 	{
-		checkCollision((*iter), ifMoved, false, true, i);
+		checkCollisionJumpable((*iter), ifMoved, i);
 	}
 	
 	checkJump();
@@ -277,59 +289,27 @@ void idle(void){
 	if(keyFlags['a']){
 		if(canMove[0]){
 			player->addCenterX(-delta);
-		}else{
-			player->addCenterX(delta);
-			if(!canMove[3]){
-				player->addCenterY(-delta);
-			}
-			if(!canMove[1]){
-				player->addCenterY(delta);
-			}
 		}
 	}
 	if(keyFlags['s']){
 		if(canMove[1]){
 			player->addCenterY(-delta);
-		}else{
-			player->addCenterY(delta);
-			if(!canMove[2]){
-				player->addCenterX(-delta);
-			}
-			if(!canMove[0]){
-				player->addCenterX(delta);
-			}
 		}
 	}
 	if(keyFlags['d']){
 		if(canMove[2]){
 			player->addCenterX(+delta);
-		}else{
-			player->addCenterX(-delta);
-			if(!canMove[3]){
-				player->addCenterY(-delta);
-			}
-			if(!canMove[1]){
-				player->addCenterY(delta);
-			}
 		}
 	}
 	if(keyFlags['w']){
 		if(canMove[3]){
 			player->addCenterY(+delta);
-		}else{
-			player->addCenterY(-delta);
-			if(!canMove[2]){
-				player->addCenterX(-delta);
-			}
-			if(!canMove[0]){
-				player->addCenterX(delta);
-			}
 		}
 	}
 	if(keyFlags['p']){
 		if(!inJump){
 			inJump = true;
-			jumpInitTime = clock();
+			jumpInitTime = glutGet(GLUT_ELAPSED_TIME);;
 		}
 	}
 	glutPostRedisplay();
